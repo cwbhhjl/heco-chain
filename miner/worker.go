@@ -1057,6 +1057,16 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 				"uncles", len(uncles), "txs", w.current.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, receipts),
 				"elapsed", common.PrettyDuration(time.Since(start)))
+			elapse := core.EvmDuration
+
+			readms := state.EvmRead.Milliseconds()
+			writems := state.EvmWrite.Milliseconds()
+			allms := elapse.Milliseconds()
+			execms := allms - readms - writems
+			log.Info("evm time", "number", block.Number(), "all", allms, "read", readms, "write", writems, "exec", execms)
+			core.EvmDuration = 0
+			state.EvmRead = 0
+			state.EvmWrite = 0
 
 		case <-w.exitCh:
 			log.Info("Worker has exited")

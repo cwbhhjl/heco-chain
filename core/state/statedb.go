@@ -47,6 +47,11 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
+var (
+	EvmRead time.Duration
+	EvmWrite time.Duration
+)
+
 type proofList [][]byte
 
 func (n *proofList) Put(key []byte, value []byte) error {
@@ -185,6 +190,10 @@ func (s *StateDB) Error() error {
 }
 
 func (s *StateDB) AddLog(log *types.Log) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	s.journal.append(addLogChange{txhash: s.thash})
 
 	log.TxHash = s.thash
@@ -212,6 +221,10 @@ func (s *StateDB) Logs() []*types.Log {
 
 // AddPreimage records a SHA3 preimage seen by the VM.
 func (s *StateDB) AddPreimage(hash common.Hash, preimage []byte) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	if _, ok := s.preimages[hash]; !ok {
 		s.journal.append(addPreimageChange{hash: hash})
 		pi := make([]byte, len(preimage))
@@ -227,6 +240,10 @@ func (s *StateDB) Preimages() map[common.Hash][]byte {
 
 // AddRefund adds gas to the refund counter
 func (s *StateDB) AddRefund(gas uint64) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	s.journal.append(refundChange{prev: s.refund})
 	s.refund += gas
 }
@@ -234,6 +251,10 @@ func (s *StateDB) AddRefund(gas uint64) {
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero
 func (s *StateDB) SubRefund(gas uint64) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	s.journal.append(refundChange{prev: s.refund})
 	if gas > s.refund {
 		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund))
@@ -244,18 +265,30 @@ func (s *StateDB) SubRefund(gas uint64) {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	return s.getStateObject(addr) != nil
 }
 
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	so := s.getStateObject(addr)
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Balance()
@@ -264,6 +297,10 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
@@ -278,6 +315,10 @@ func (s *StateDB) TxIndex() int {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Code(s.db)
@@ -286,6 +327,10 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 }
 
 func (s *StateDB) GetCodeSize(addr common.Address) int {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.CodeSize(s.db)
@@ -294,6 +339,10 @@ func (s *StateDB) GetCodeSize(addr common.Address) int {
 }
 
 func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
 		return common.Hash{}
@@ -303,6 +352,10 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 
 // GetState retrieves a value from the given account's storage trie.
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.GetState(s.db, hash)
@@ -335,6 +388,10 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.GetCommittedState(s.db, hash)
@@ -360,6 +417,10 @@ func (s *StateDB) StorageTrie(addr common.Address) Trie {
 }
 
 func (s *StateDB) HasSuicided(addr common.Address) bool {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.suicided
@@ -373,14 +434,20 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
 
 // AddBalance adds amount to the account associated with addr.
 func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
+	start := time.Now()
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
 	}
+	EvmWrite += time.Since(start)
 }
 
 // SubBalance subtracts amount from the account associated with addr.
 func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SubBalance(amount)
@@ -395,6 +462,10 @@ func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
@@ -402,6 +473,10 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
 }
 
 func (s *StateDB) SetCode(addr common.Address, code []byte) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
@@ -409,6 +484,10 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
@@ -430,6 +509,10 @@ func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after Suicide.
 func (s *StateDB) Suicide(addr common.Address) bool {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
 		return false
@@ -709,6 +792,10 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (s *StateDB) CreateAccount(addr common.Address) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	newObj, prev := s.createObject(addr)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
@@ -716,6 +803,10 @@ func (s *StateDB) CreateAccount(addr common.Address) {
 }
 
 func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) error {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	so := db.getStateObject(addr)
 	if so == nil {
 		return nil
@@ -846,6 +937,10 @@ func (s *StateDB) Copy() *StateDB {
 
 // Snapshot returns an identifier for the current revision of the state.
 func (s *StateDB) Snapshot() int {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	id := s.nextRevisionId
 	s.nextRevisionId++
 	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
@@ -854,6 +949,10 @@ func (s *StateDB) Snapshot() int {
 
 // RevertToSnapshot reverts all state changes made since the given revision.
 func (s *StateDB) RevertToSnapshot(revid int) {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	// Find the snapshot in the stack of valid snapshots.
 	idx := sort.Search(len(s.validRevisions), func(i int) bool {
 		return s.validRevisions[i].id >= revid
@@ -870,6 +969,10 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 
 // GetRefund returns the current value of the refund counter.
 func (s *StateDB) GetRefund() uint64 {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	return s.refund
 }
 
@@ -1097,6 +1200,10 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 //
 // This method should only be called if Berlin/2929+2930 is applicable at the current number.
 func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	s.AddAddressToAccessList(sender)
 	if dst != nil {
 		s.AddAddressToAccessList(*dst)
@@ -1115,6 +1222,10 @@ func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, 
 
 // AddAddressToAccessList adds the given address to the access list
 func (s *StateDB) AddAddressToAccessList(addr common.Address) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	if s.accessList.AddAddress(addr) {
 		s.journal.append(accessListAddAccountChange{&addr})
 	}
@@ -1122,6 +1233,10 @@ func (s *StateDB) AddAddressToAccessList(addr common.Address) {
 
 // AddSlotToAccessList adds the given (address, slot)-tuple to the access list
 func (s *StateDB) AddSlotToAccessList(addr common.Address, slot common.Hash) {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	addrMod, slotMod := s.accessList.AddSlot(addr, slot)
 	if addrMod {
 		// In practice, this should not happen, since there is no way to enter the
@@ -1140,11 +1255,19 @@ func (s *StateDB) AddSlotToAccessList(addr common.Address, slot common.Hash) {
 
 // AddressInAccessList returns true if the given address is in the access list.
 func (s *StateDB) AddressInAccessList(addr common.Address) bool {
+	start := time.Now()
+	defer func() {
+		EvmWrite += time.Since(start)
+	}()
 	return s.accessList.ContainsAddress(addr)
 }
 
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list.
 func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addressPresent bool, slotPresent bool) {
+	start := time.Now()
+	defer func() {
+		EvmRead += time.Since(start)
+	}()
 	return s.accessList.Contains(addr, slot)
 }
 
